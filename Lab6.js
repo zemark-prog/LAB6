@@ -307,9 +307,6 @@ const drawWeigths = (matrix, obj) => {
 
 
 
-
-
-
 const START_VERT = 1;
 const DijkObj = {};
 const inf = Math.pow(10, 200);
@@ -331,6 +328,7 @@ const GetAdjacentLenghts = (obj, curr) => {
   });
 };
 
+//GetAdjacentLenghts(DijkObj, 1);
 const GetMinLength = obj => {
   const weights = [];
   for (const v in obj) {
@@ -352,91 +350,162 @@ const IsDijkstraDone = obj => {
   }
   return done;
 };
+const fullCopy = x => JSON.parse(JSON.stringify(x));
+const lengthsArray = [];
+const doneArray = [START_VERT];
+let usingBorders = [];
 
-
-ctx.fillText('Pathes', 900, 100);
-ctx.fillText('Length', 1000, 100);
-let counter = 0;
 const Dijkstra = (obj, current = START_VERT) => {
-  counter++;
-  GetAdjacentLenghts(obj, current);
+  for (let i = 0; i < N; i++) { //GetAdjacentLenghts(obj, current);
+    const weight = W[current - 1][i];
+    const v = i + 1;
+    if (weight) {
+      if (obj[v].mark === 'T')  {
+        if (weight + obj[current].dist < obj[v].dist) {
+          if (obj[v].prev) {
+            // console.log([current, v])
+            usingBorders = usingBorders.filter(x => JSON.stringify(x) !== JSON.stringify([obj[v].prev, v]));
+          }
+          obj[v].dist = weight + obj[current].dist;
+          obj[v].prev = current;
+          usingBorders.push([current, v]);
+        }
+        lengthsArray.push([current, v, fullCopy(doneArray), fullCopy(usingBorders), fullCopy(obj)]);
+      }
+    }
+  }
   const min = GetMinLength(obj);
   obj[min.v].mark = 'P';
-  const newWay = [];
-  for (let i = min.v; i; i = obj[i].prev) {
-    newWay.unshift(i);
-  }
-  ctx.beginPath;
-  ctx.font = '22px Times new Roman';
-  ctx.fillStyle = 'black';
-  ctx.fillText(newWay, 900, 100 + (counter) * 25);
-  ctx.fillText(newWay.length, 1000, 100 + (counter) * 25);
-  console.log(min.v, newWay);
-  return { obj, current: min.v };
+  doneArray.push(min.v);
+
+  if (!IsDijkstraDone(obj)) Dijkstra(obj, min.v);
 };
-let curr = START_VERT;
 
-const halt = (object, currentV) => {
-  if (!IsDijkstraDone(object)) {
-    const { obj, current } = Dijkstra(object, currentV);
-    curr = current;
-    ctx.clearRect(0, 0, 800, 700);
-    const newWay = [];
-    for (let i = current; i; i = obj[i].prev) { //find way
-      newWay.unshift(i);
-    }
+Dijkstra(DijkObj);
+
+const curr = START_VERT;
+
+const iterDijk = lengthsArray[Symbol.iterator]();
+
+const halt = () => {
+  const { value, done } = iterDijk.next();
+  if (!done) {
+    ctx.clearRect(0, 0, 785, 740);
+    const current = value[0],
+      to = value[1],
+      doneArray = value[2],
+      usingArray = value[3],
+      obj = value[4];
+    ctx.beginPath();
+    console.log(current, to);
+    const from = graf['vert' + current];
+    const To = graf['vert' + to];
+    ctx.strokeStyle = '#273746';
+
     single(graf);
-    ctx.strokeStyle = 'green';
-    ctx.lineWidth = 3;
-    newWay.forEach((v, i, arr) => {
-      if (arr[i + 1]) {
-        const to = graf[`vert${v}`];
-        const from = graf[`vert${arr[i + 1]}`];
-        // ctx.moveTo(graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1]);
-        // ctx.lineTo(graf[`vert${arr[i + 1]}`].coords[0], graf[`vert${arr[i + 1]}`].coords[1]);
+    drawWeigths(W, graf);
+    for (let i = 1; i <= N; i++) { //draw vertics
+      ctx.beginPath();
+      let color = doneArray.includes(i) ? '#3498DB' : '#E74C3C';
+      if (current === i) color = '#48C9B0';
+      drawCircle(ctx, graf[`vert${i}`].coords[0], graf[`vert${i}`].coords[1], r, color, 'black');
+    }
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    usingArray.forEach(arr => { //ребра которые используются в мин. путях
+      ctx.beginPath();
+      const fromV = arr[0],
+        toV = arr[1];
+      ctx.strokeStyle = '#48C9B0';
+      const from = graf['vert' + fromV];
+      const to = graf['vert' + toV];
 
-        if (Math.abs(from.num - to.num) === 1 || Math.abs(from.num - to.num) === (Object.keys(graf).length - 1)) {
-          ctx.beginPath();
+
+
+      if (Math.abs(from.num - to.num) === 1 || Math.abs(from.num - to.num) === (Object.keys(graf).length - 1)) {
+        ctx.beginPath();
+        ctx.moveTo(from.coords[0], from.coords[1]);
+        ctx.lineTo(to.coords[0], to.coords[1]);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        if (from.num < to.num) {
+          const { dx, dy } = singleAdditionalDots(from.coords[0], from.coords[1], to.coords[0], to.coords[1]);
+          let newX = (from.coords[0] + to.coords[0]) / 2;
+          let newY = (from.coords[1] + to.coords[1]) / 2;
+          newX -= dx;
+          newY += dy;
           ctx.moveTo(from.coords[0], from.coords[1]);
+          ctx.lineTo(newX, newY);
           ctx.lineTo(to.coords[0], to.coords[1]);
           ctx.stroke();
         } else {
-          ctx.beginPath();
-          if (from.num < to.num) {
-            const { dx, dy } = singleAdditionalDots(from.coords[0], from.coords[1], to.coords[0], to.coords[1]);
-            let newX = (from.coords[0] + to.coords[0]) / 2;
-            let newY = (from.coords[1] + to.coords[1]) / 2;
-            newX -= dx;
-            newY += dy;
-            ctx.moveTo(from.coords[0], from.coords[1]);
-            ctx.lineTo(newX, newY);
-            ctx.lineTo(to.coords[0], to.coords[1]);
-            ctx.stroke();
-          } else {
-            const { dx, dy } = singleAdditionalDots(to.coords[0], to.coords[1], from.coords[0], from.coords[1],);
-            let newX = (from.coords[0] + to.coords[0]) / 2;
-            let newY = (from.coords[1] + to.coords[1]) / 2;
-            newX -= dx;
-            newY += dy;
-            ctx.moveTo(to.coords[0], to.coords[1]);
-            ctx.lineTo(newX, newY);
-            ctx.lineTo(from.coords[0], from.coords[1]);
-            ctx.stroke();
-          }
+          const { dx, dy } = singleAdditionalDots(to.coords[0], to.coords[1], from.coords[0], from.coords[1],);
+          let newX = (from.coords[0] + to.coords[0]) / 2;
+          let newY = (from.coords[1] + to.coords[1]) / 2;
+          newX -= dx;
+          newY += dy;
+          ctx.moveTo(to.coords[0], to.coords[1]);
+          ctx.lineTo(newX, newY);
+          ctx.lineTo(from.coords[0], from.coords[1]);
+          ctx.stroke();
         }
+
       }
+
+
+
+
+      // ctx.moveTo(graf['vert' + fromV].coords[0], graf['vert' + fromV].coords[1]);
+      // ctx.lineTo(graf['vert' + toV].coords[0], graf['vert' + toV].coords[1]);
+      // ctx.stroke();
     });
-    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 1;
+    { //данная вершина
+      if (Math.abs(from.num - To.num) === 1 || Math.abs(from.num - To.num) === (Object.keys(graf).length - 1)) {
+        ctx.beginPath();
+        ctx.moveTo(from.coords[0], from.coords[1]);
+        ctx.lineTo(To.coords[0], To.coords[1]);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        if (from.num < To.num) {
+          const { dx, dy } = singleAdditionalDots(from.coords[0], from.coords[1], To.coords[0], To.coords[1]);
+          let newX = (from.coords[0] + To.coords[0]) / 2;
+          let newY = (from.coords[1] + To.coords[1]) / 2;
+          newX -= dx;
+          newY += dy;
+          ctx.moveTo(from.coords[0], from.coords[1]);
+          ctx.lineTo(newX, newY);
+          ctx.lineTo(To.coords[0], To.coords[1]);
+          ctx.stroke();
+        } else {
+          const { dx, dy } = singleAdditionalDots(To.coords[0], To.coords[1], from.coords[0], from.coords[1],);
+          let newX = (from.coords[0] + To.coords[0]) / 2;
+          let newY = (from.coords[1] + To.coords[1]) / 2;
+          newX -= dx;
+          newY += dy;
+          ctx.moveTo(To.coords[0], To.coords[1]);
+          ctx.lineTo(newX, newY);
+          ctx.lineTo(from.coords[0], from.coords[1]);
+          ctx.stroke();
+        }
+
+      }
+
+    }
+    for (let i = 1; i <= N; i++) { //draw vertics
+      ctx.beginPath();
+      let color = doneArray.includes(i) ? '#3498DB' : '#E74C3C';
+      if (current === i) color = '#48C9B0';
+      drawCircle(ctx, graf[`vert${i}`].coords[0], graf[`vert${i}`].coords[1], r, color, 'black');
+    }
     for (const v in obj) {
       //draw vertics
       ctx.beginPath();
-      ctx.lineWidth = 5;
-      let color = obj[v].mark === 'T' ? 'red' : 'blue';
-      if (+v === curr) color = 'green';
-      drawCircle(ctx, graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1], r, 'gray', color);
       //draw text
       ctx.lineWidth = 1;
-      ctx.font = '15px Arial';
+      ctx.font = '14px Arial';
       ctx.fillStyle = 'white';
       ctx.strokeStyle = 'black';
       ctx.textBaseline = 'middle';
@@ -444,11 +513,38 @@ const halt = (object, currentV) => {
       ctx.strokeText(`${v}(${obj[v].dist === inf ? '∞' : obj[v].dist})`, graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1]);
       ctx.fillText(`${v}(${obj[v].dist === inf ? '∞' : obj[v].dist})`, graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1]);
     }
-    drawWeigths(W, graf);
+  } else {
+    for (let i = 1; i <= N; i++) { //draw vertics
+      ctx.beginPath();
+      const color = '#3498DB';
+      drawCircle(ctx, graf[`vert${i}`].coords[0], graf[`vert${i}`].coords[1], r, color, 'black');
+    }
+    for (const v in DijkObj) {
+      ctx.beginPath();
+      ctx.lineWidth = 1;
+      ctx.font = '20px Arial';
+      ctx.fillStyle = 'white';
+      ctx.strokeStyle = 'black';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'center';
+      ctx.strokeText(`${v}(${DijkObj[v].dist === inf ? '∞' : DijkObj[v].dist})`, graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1]);
+      ctx.fillText(`${v}(${DijkObj[v].dist === inf ? '∞' : DijkObj[v].dist})`, graf[`vert${v}`].coords[0], graf[`vert${v}`].coords[1]);
+    }
+    
   }
+  drawWeigths(W, graf);
 };
-
-
+ctx.font = '24px Times new Roman';
+ctx.fillText('Pathes', 990, 100);
+for (const v in DijkObj) {
+  const newWay = [];
+  if (v === 1) continue;
+  for (let i = v; i; i = DijkObj[i].prev) {
+    newWay.unshift(i);
+  }
+  ctx.font = '22px Times new Roman';
+  ctx.fillText(`${v} : ${newWay.join('-')} distance: ${DijkObj[v].dist}`, 990, 100 + 25 * (v));
+}
 ctx.fillStyle = 'black';
 ctx.font = '22px Times new Roman';
 ctx.fillText('Adjacency matrix', 250, 800);
@@ -465,19 +561,9 @@ for (let i = 0; i < A.length; i++) {
 }
 
 
-
-
-
-
-
-
 drawLoops(loops, graf, 75, 100);
 single(graf);
 drawVertex(graf);
 drawWeigths(W, graf);
-
-
-
-
 
 
